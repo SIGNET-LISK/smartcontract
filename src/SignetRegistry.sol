@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+import "openzeppelin-contracts/contracts/metatx/ERC2771Context.sol";
 import "openzeppelin-contracts/contracts/access/Ownable.sol";
+import "openzeppelin-contracts/contracts/utils/Context.sol";
 
-contract SignetRegistry is Ownable {
+contract SignetRegistry is ERC2771Context, Ownable {
     
     struct Content {
         address publisher;
@@ -25,10 +27,13 @@ contract SignetRegistry is Ownable {
         uint256 timestamp
     );
 
-    constructor() Ownable(msg.sender) {}
+    constructor(address _trustedForwarder) 
+        ERC2771Context(_trustedForwarder)
+        Ownable(_msgSender()) 
+    {}
 
     modifier onlyPublisher() {
-        require(authorizedPublishers[msg.sender] == true, "SIGNET: Not an authorized publisher.");
+        require(authorizedPublishers[_msgSender()] == true, "SIGNET: Not an authorized publisher.");
         _;
     }
 
@@ -50,7 +55,7 @@ contract SignetRegistry is Ownable {
         require(contentRegistry[_pHash].publisher == address(0), "SIGNET: Hash already registered."); 
 
         contentRegistry[_pHash] = Content({
-            publisher: msg.sender,
+            publisher: _msgSender(),
             title: _title,
             description: _desc,
             timestamp: block.timestamp
@@ -60,7 +65,7 @@ contract SignetRegistry is Ownable {
 
         emit ContentRegisteredFull(
             _pHash,
-            msg.sender,
+            _msgSender(),
             _title,
             _desc,
             block.timestamp
@@ -85,5 +90,18 @@ contract SignetRegistry is Ownable {
             content.description,
             content.timestamp
         );
+    }
+
+    // Override functions untuk mengatasi konflik antara ERC2771Context dan Ownable
+    function _msgSender() internal view virtual override(ERC2771Context, Context) returns (address) {
+        return ERC2771Context._msgSender();
+    }
+
+    function _msgData() internal view virtual override(ERC2771Context, Context) returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }
+
+    function _contextSuffixLength() internal view virtual override(ERC2771Context, Context) returns (uint256) {
+        return ERC2771Context._contextSuffixLength();
     }
 }
